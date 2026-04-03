@@ -7,25 +7,28 @@ export const useAuthStore = defineStore('auth', () => {
   // State
   const user = ref(JSON.parse(localStorage.getItem('user')) || null);
   const token = ref(localStorage.getItem('token') || null);
+  const refreshToken = ref(localStorage.getItem('refreshToken') || null);
   const loading = ref(false);
   const error = ref(null);
   
   const router = useRouter();
 
   // Internal helpers
-  const setAuthData = (userData, accessToken, refreshToken = null) => {
+  const setAuthData = (userData, accessToken, refreshTok = null) => {
     user.value = userData;
     token.value = accessToken;
+    refreshToken.value = refreshTok;
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('token', accessToken);
-    if (refreshToken) {
-      localStorage.setItem('refreshToken', refreshToken);
+    if (refreshTok) {
+      localStorage.setItem('refreshToken', refreshTok);
     }
   };
 
   const clearAuthData = () => {
     user.value = null;
     token.value = null;
+    refreshToken.value = null;
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
@@ -60,7 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     try {
       if (token.value) {
-        await authService.logout();
+        await authService.logout(refreshToken.value);
       }
     } catch (err) {
       console.error('Server-side logout failed:', err);
@@ -108,6 +111,7 @@ export const useAuthStore = defineStore('auth', () => {
     // State properties
     user,
     token,
+    refreshToken,
     loading,
     error,
     // Actions

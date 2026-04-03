@@ -1,4 +1,4 @@
-import api from './api';
+import api from "./api";
 
 /**
  * @typedef {Object} UserResponse
@@ -24,15 +24,16 @@ class AuthService {
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: {access_token: string, refresh_token: string, user: UserResponse}}>>}
    */
   login(credentials) {
-    return api.post('/api/v1/auth/login', credentials);
+    return api.post("/api/v1/auth/login", credentials);
   }
 
   /**
    * Endpoint for user logout
+   * @param {string} refreshToken - The refresh token to be invalidated
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string}>>}
    */
-  logout() {
-    return api.post('/api/v1/auth/logout');
+  logout(refreshToken) {
+    return api.post("/api/v1/auth/logout", { refresh_token: refreshToken });
   }
 
   /**
@@ -41,7 +42,7 @@ class AuthService {
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string}>>}
    */
   register(payload) {
-    return api.post('/api/v1/auth/register', payload);
+    return api.post("/api/v1/auth/register", payload);
   }
 
   /**
@@ -50,7 +51,7 @@ class AuthService {
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: UserResponse}>>}
    */
   updateProfile(payload) {
-    return api.put('/api/v1/me', payload);
+    return api.put("/api/v1/users/me", payload);
   }
 
   /**
@@ -58,7 +59,7 @@ class AuthService {
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: UserResponse}>>}
    */
   fetchProfile() {
-    return api.get('/api/v1/me');
+    return api.get("/api/v1/users/me");
   }
 }
 
