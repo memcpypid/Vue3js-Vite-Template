@@ -42,7 +42,7 @@ Template frontend modern, tangguh, dan berstandar *Enterprise* yang dirancang kh
 
 Aplikasi ini dirancang untuk bekerja secara harmonis dengan template backend Go berikut:
 👉 **[Go-Gin-Template by memcpypid](https://github.com/memcpypid/Go-Gin-Template)**
-
+👉 **[Xpress.js-Template by memcpypid](https://github.com/memcpypid/Xpress.js-Template)**
 Pastikan backend Anda berjalan dengan endpoint yang sesuai sebelum menjalankan aplikasi frontend ini.
 
 ---
