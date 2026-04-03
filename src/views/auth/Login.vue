@@ -26,7 +26,7 @@ const handleLogin = async () => {
     if (authStore.hasRole('admin')) {
       router.push('/admin/dashboard');
     } else {
-      router.push('/user');
+      router.push('/user/dashboard');
     }
   } catch (error) {
     // Display error message which might bubble from Axios/Service layer

@@ -1,4 +1,4 @@
-import api from './api';
+import api from "./api";
 
 /**
  * @typedef {Object} UserResponse
@@ -36,13 +36,21 @@ class UserService {
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: {users: UserResponse[], pagination: Pagination}}>>}
    */
   getUsers(params = {}) {
-    return api.get('/api/v1/users', { params });
+    return api.get("/api/v1/users", { params });
+  }
+
+  /**
+   * Get count of users
+   * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: {count: number}}>>}
+   */
+  getCountUser() {
+    return api.get("/api/v1/users/count");
   }
 
   /**
    * Update a user's details
    * @param {string} id
-   * @param {UpdateUserRequest} payload 
+   * @param {UpdateUserRequest} payload
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: UserResponse}>>}
    */
   updateUser(id, payload) {

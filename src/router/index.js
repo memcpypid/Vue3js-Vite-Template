@@ -52,7 +52,7 @@ const routes = [
     meta: { requiresAuth: true, role: "user" },
     children: [
       {
-        path: "",
+        path: "dashboard",
         name: "UserDashboard",
         component: () => import("../views/user/Dashboard.vue"),
       },
