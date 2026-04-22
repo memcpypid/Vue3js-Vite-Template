@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter as _createRouter, createWebHistory, createMemoryHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useTitle } from "@vueuse/core";
 import NProgress from "nprogress";
@@ -72,53 +72,55 @@ const routes = [
   },
 ];
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-});
+export function createRouter() {
+  const router = _createRouter({
+    history: import.meta.env.SSR ? createMemoryHistory() : createWebHistory(),
+    routes,
+  });
 
-// Configure NProgress
-NProgress.configure({ showSpinner: false });
-
-router.beforeEach((to, from, next) => {
-  NProgress.start();
-  const authStore = useAuthStore();
-  const isAuthenticated = authStore.isAuthenticated();
-  const userRole = authStore.user?.role;
-
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next({ name: "Login" });
-  } else if (to.meta.guest && isAuthenticated) {
-    if (userRole === "admin") {
-      next({ name: "AdminDashboard" });
-    } else {
-      next({ name: "UserDashboard" });
-    }
-  } else if (
-    to.meta.requiresAuth &&
-    to.meta.role &&
-    to.meta.role !== userRole
-  ) {
-    // If user tries to access a route they don't have permission for
-    if (userRole === "admin") {
-      next({ name: "AdminDashboard" });
-    } else if (userRole === "user") {
-      next({ name: "UserDashboard" });
-    } else {
-      next({ name: "Login" });
-    }
-  } else {
-    next();
+  // Configure NProgress (Client only)
+  if (!import.meta.env.SSR) {
+    NProgress.configure({ showSpinner: false });
   }
-});
 
-router.afterEach((to) => {
-  // Dynamic Title
-  const title = useTitle();
-  const baseTitle = "Vue3 Vite Template";
-  title.value = to.name ? `${to.name} | ${baseTitle}` : baseTitle;
-  
-  NProgress.done();
-});
+  router.beforeEach((to, from) => {
+    if (!import.meta.env.SSR) NProgress.start();
+    const authStore = useAuthStore();
+    const isAuthenticated = authStore.isAuthenticated();
+    const userRole = authStore.user?.role;
 
-export default router;
+    // Authentication check
+    if (to.meta.requiresAuth && !isAuthenticated) {
+      return { name: "Login" };
+    }
+
+    // Guest route check (redirect away from login/register if already authenticated)
+    if (to.meta.guest && isAuthenticated) {
+      return userRole === "admin" ? { name: "AdminDashboard" } : { name: "UserDashboard" };
+    }
+
+    // Role-based authorization check
+    if (
+      to.meta.requiresAuth &&
+      to.meta.role &&
+      to.meta.role !== userRole
+    ) {
+      if (userRole === "admin") return { name: "AdminDashboard" };
+      if (userRole === "user") return { name: "UserDashboard" };
+      return { name: "Login" };
+    }
+  });
+
+  router.afterEach((to) => {
+    if (!import.meta.env.SSR) {
+      // Dynamic Title
+      const title = useTitle();
+      const baseTitle = "Vue3 Vite Template";
+      title.value = to.name ? `${to.name} | ${baseTitle}` : baseTitle;
+      
+      NProgress.done();
+    }
+  });
+
+  return router;
+}

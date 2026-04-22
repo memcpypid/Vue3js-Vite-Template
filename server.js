@@ -1,0 +1,98 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import express from 'express'
+import compression from 'compression'
+import cookieParser from 'cookie-parser'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+export async function createServer(
+  root = process.cwd(),
+  isProd = process.env.NODE_ENV === 'production',
+  hmrPort
+) {
+  const resolve = (p) => path.resolve(__dirname, p)
+
+  const indexProd = isProd
+    ? fs.readFileSync(resolve('dist/client/index.html'), 'utf-8')
+    : ''
+
+  const app = express()
+
+  /**
+   * @type {import('vite').ViteDevServer}
+   */
+  let vite
+  if (!isProd) {
+    vite = await (
+      await import('vite')
+    ).createServer({
+      root,
+      logLevel: 'info',
+      server: {
+        middlewareMode: true,
+        watch: {
+          // During tests we edit the files too fast and sometimes chokidar
+          // misses change events, so enforce polling for consistency
+          usePolling: true,
+          interval: 100
+        },
+        hmr: {
+          port: hmrPort
+        }
+      },
+      appType: 'custom'
+    })
+    // use vite's connect instance as middleware
+    app.use(vite.middlewares)
+  } else {
+    app.use(compression())
+    app.use(
+      (await import('serve-static')).default(resolve('dist/client'), {
+        index: false
+      })
+    )
+  }
+
+  app.use(cookieParser())
+
+  app.use(async (req, res) => {
+    try {
+      const url = req.originalUrl
+
+      let template, render
+      if (!isProd) {
+        // always read fresh index.html in dev
+        template = fs.readFileSync(resolve('index.html'), 'utf-8')
+        template = await vite.transformIndexHtml(url, template)
+        render = (await vite.ssrLoadModule('/src/entry-server.js')).render
+      } else {
+        template = indexProd
+        render = (await import('./dist/server/entry-server.js')).render
+      }
+
+      // Pass cookies to the render function for Pinia hydration
+      const { html: appHtml, state } = await render(url, {}, req.cookies)
+
+      const html = template
+        .replace(`<!--ssr-outlet-->`, appHtml)
+        .replace(`<!--pinia-state-->`, `<script>window.__INITIAL_STATE__=${state}</script>`)
+        .replace(`<html lang="en">`, `<html lang="en" class="${req.cookies['vueuse-color-scheme'] === 'dark' ? 'dark' : ''}">`)
+
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(html)
+    } catch (e) {
+      !isProd && vite.ssrFixStacktrace(e)
+      console.log(e.stack)
+      res.status(500).end(e.stack)
+    }
+  })
+
+  return { app, vite }
+}
+
+createServer().then(({ app }) =>
+  app.listen(5173, () => {
+    console.log('http://localhost:5173')
+  })
+)

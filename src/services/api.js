@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "@/stores/auth";
+import { getCookie } from "@/utils/cookie";
 import NProgress from "nprogress";
 
 const api = axios.create({
@@ -27,8 +28,8 @@ const processQueue = (error, token = null) => {
 
 api.interceptors.request.use(
   (config) => {
-    NProgress.start();
-    const token = localStorage.getItem("token");
+    if (!import.meta.env.SSR) NProgress.start();
+    const token = getCookie("token");
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }

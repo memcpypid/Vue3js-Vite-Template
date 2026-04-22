@@ -1,14 +1,18 @@
-import { createApp } from 'vue'
+import { createSSRApp } from 'vue'
 import { createPinia } from 'pinia'
-import router from './router'
+import { createRouter } from './router'
 import './style.css'
 import 'nprogress/nprogress.css'
 import App from './App.vue'
 
-const app = createApp(App)
-const pinia = createPinia()
+// SSR requires a fresh app instance per request, so we export a function
+export function createApp() {
+  const app = createSSRApp(App)
+  const pinia = createPinia()
+  const router = createRouter()
 
-app.use(pinia)
-app.use(router)
+  app.use(pinia)
+  app.use(router)
 
-app.mount('#app')
+  return { app, router, pinia }
+}

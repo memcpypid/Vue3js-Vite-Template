@@ -3,15 +3,30 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import authService from "@/services/auth.service";
 import { useToast } from "@/composables/useToast";
+import { getCookie, setCookie, removeCookie } from "@/utils/cookie";
 
 export const useAuthStore = defineStore("auth", () => {
   const toast = useToast();
   // State
-  const user = ref(JSON.parse(localStorage.getItem("user")) || null);
-  const token = ref(localStorage.getItem("token") || null);
-  const refreshToken = ref(localStorage.getItem("refreshToken") || null);
+  const user = ref(null);
+  const token = ref(null);
+  const refreshToken = ref(null);
   const loading = ref(false);
   const error = ref(null);
+
+  // Initialize state from cookies (safely for both SSR and Client)
+  const initFromCookies = (cookies = '') => {
+    token.value = getCookie('token', cookies);
+    refreshToken.value = getCookie('refreshToken', cookies);
+    const userCookie = getCookie('user', cookies);
+    if (userCookie) {
+      try {
+        user.value = JSON.parse(decodeURIComponent(userCookie));
+      } catch (e) {
+        user.value = null;
+      }
+    }
+  };
 
   // Profile Form specific state
   const profileForm = ref({
@@ -33,10 +48,16 @@ export const useAuthStore = defineStore("auth", () => {
     user.value = userData;
     token.value = accessToken;
     refreshToken.value = refreshTok;
-    localStorage.setItem("user", JSON.stringify(userData));
-    localStorage.setItem("token", accessToken);
-    if (refreshTok) {
-      localStorage.setItem("refreshToken", refreshTok);
+    
+    // Set Cookies (Browser only)
+    if (typeof document !== 'undefined') {
+      setCookie('token', accessToken);
+      if (refreshTok) setCookie('refreshToken', refreshTok);
+      setCookie('user', encodeURIComponent(JSON.stringify(userData)));
+      
+      // Keep localStorage as backup/legacy if needed, but cookies are primary for SSR
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", accessToken);
     }
   };
 
@@ -44,9 +65,15 @@ export const useAuthStore = defineStore("auth", () => {
     user.value = null;
     token.value = null;
     refreshToken.value = null;
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
+    
+    if (typeof document !== 'undefined') {
+      removeCookie('token');
+      removeCookie('refreshToken');
+      removeCookie('user');
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+    }
   };
 
   // Actions
@@ -169,6 +196,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   return {
     // State properties
+    // State properties
     user,
     token,
     refreshToken,
@@ -176,6 +204,7 @@ export const useAuthStore = defineStore("auth", () => {
     error,
     profileForm,
     // Actions
+    initFromCookies,
     initProfileForm,
     login,
     logout,
