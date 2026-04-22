@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
-import { Loader2, AlertTriangle, Info } from 'lucide-vue-next';
+import { AlertTriangle, Info } from 'lucide-vue-next';
+import Button from '@/components/ui/Button.vue';
 
 const props = defineProps({
   isOpen: {
@@ -38,15 +39,14 @@ const emit = defineEmits(['close', 'confirm']);
 
 // Computed styles based on type
 const iconStyle = computed(() => {
-  if (props.type === 'danger') return 'bg-rose-100 text-rose-600';
-  if (props.type === 'warning') return 'bg-amber-100 text-amber-600';
-  return 'bg-blue-100 text-blue-600';
+  if (props.type === 'danger') return 'bg-rose-500/10 text-rose-500';
+  if (props.type === 'warning') return 'bg-amber-500/10 text-amber-500';
+  return 'bg-blue-500/10 text-blue-500';
 });
 
-const buttonStyle = computed(() => {
-  if (props.type === 'danger') return 'bg-rose-500 hover:bg-rose-600 text-white focus:ring-rose-500';
-  if (props.type === 'warning') return 'bg-amber-500 hover:bg-amber-600 text-white focus:ring-amber-500';
-  return 'bg-blue-500 hover:bg-blue-600 text-white focus:ring-blue-500';
+const buttonVariant = computed(() => {
+  if (props.type === 'danger') return 'danger';
+  return 'primary'; 
 });
 </script>
 
@@ -84,19 +84,26 @@ const buttonStyle = computed(() => {
           </div>
         </div>
 
-        <div class="bg-muted px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-          <button type="button"
-            class="inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold shadow-sm sm:ml-3 sm:w-auto transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
-            :class="[buttonStyle, isLoading ? 'opacity-70 cursor-not-allowed' : '']" @click="emit('confirm')"
-            :disabled="isLoading">
-            <Loader2 v-if="isLoading" class="w-4 h-4 mr-2 animate-spin" />
+        <div class="bg-muted/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:gap-3 sm:px-6">
+          <Button 
+            type="button" 
+            :variant="buttonVariant" 
+            :loading="isLoading" 
+            @click="emit('confirm')"
+            customClass="w-full sm:w-auto"
+          >
             {{ confirmText }}
-          </button>
-          <button type="button"
-            class="mt-3 inline-flex w-full justify-center rounded-md bg-transparent px-3 py-2 text-sm font-semibold text-foreground shadow-sm ring-1 ring-inset ring-border hover:bg-secondary sm:mt-0 sm:w-auto transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-            @click="emit('close')" :disabled="isLoading">
+          </Button>
+          
+          <Button 
+            type="button" 
+            variant="ghost" 
+            :disabled="isLoading" 
+            @click="emit('close')"
+            customClass="w-full sm:w-auto mt-3 sm:mt-0"
+          >
             {{ cancelText }}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

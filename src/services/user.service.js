@@ -40,11 +40,20 @@ class UserService {
   }
 
   /**
+   * Get user by ID
+   * @param {string} id
+   * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: UserResponse}>>}
+   */
+  getUserById(id) {
+    return api.get(`/api/v1/users/${id}`);
+  }
+
+  /**
    * Get count of users
    * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: {count: number}}>>}
    */
   getCountUser() {
-    return api.get("/api/v1/users/count");
+    return api.get("/api/v1/users/user/count");
   }
 
   /**

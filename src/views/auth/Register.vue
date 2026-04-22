@@ -1,27 +1,55 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useThemeStore } from '../../stores/theme';
+import { useAuthStore } from '@/stores/auth';
+import { useThemeStore } from '@/stores/theme';
 import { Sun, Moon } from 'lucide-vue-next';
+import Input from '@/components/ui/Input.vue';
+import Button from '@/components/ui/Button.vue';
+import * as z from 'zod';
+import { useForm } from 'vee-validate';
+import { toTypedSchema } from '@vee-validate/zod';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const themeStore = useThemeStore();
+const errorMsg = ref('');
 
-const name = ref('');
-const email = ref('');
-const password = ref('');
+const registerSchema = toTypedSchema(
+  z.object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().min(1, 'Email is required').email('Invalid email format'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+  })
+);
 
-const handleRegister = () => {
-  // In a real app, you would register the user here.
-  // For the demo, just redirect to login.
-  alert('Registration successful! Please login.');
-  router.push('/login');
-};
+const { handleSubmit, errors, defineField, isSubmitting } = useForm({
+  validationSchema: registerSchema,
+});
+
+const [name, nameProps] = defineField('name');
+const [email, emailProps] = defineField('email');
+const [password, passwordProps] = defineField('password');
+
+const onSubmit = handleSubmit(async (values) => {
+  errorMsg.value = '';
+  try {
+    const payload = {
+      ...values,
+      role: 'user' // default role
+    };
+    await authStore.register(payload);
+    router.push('/login');
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || err.message || 'Registration failed';
+  }
+});
 </script>
 
 <template>
   <div class="relative">
-    <button @click="themeStore.toggleDark()" class="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground">
+    <button @click="themeStore.toggleDark()"
+      class="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground">
       <Moon v-if="!themeStore.isDark" class="w-5 h-5" />
       <Sun v-else class="w-5 h-5 text-yellow-500" />
     </button>
@@ -32,53 +60,48 @@ const handleRegister = () => {
         <p class="text-sm text-muted-foreground mt-2">Enter your details below to create your account</p>
       </div>
 
-      <form @submit.prevent="handleRegister" class="space-y-6">
-        <div class="space-y-2">
-          <label class="text-sm font-medium leading-none text-foreground" for="name">Full Name</label>
-          <input
-            id="name"
-            v-model="name"
-            type="text"
-            required
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            placeholder="John Doe"
-          />
+      <form @submit="onSubmit" class="space-y-6">
+        <div v-if="errorMsg" class="p-3 text-sm bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-lg">
+          {{ errorMsg }}
         </div>
 
-        <div class="space-y-2">
-          <label class="text-sm font-medium leading-none text-foreground" for="email">Email</label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            required
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            placeholder="m@example.com"
-          />
-        </div>
+        <Input 
+          id="name" 
+          v-model="name" 
+          v-bind="nameProps"
+          type="text" 
+          label="Full Name" 
+          placeholder="John Doe" 
+          :error="errors.name"
+        />
 
-        <div class="space-y-2">
-          <label class="text-sm font-medium leading-none text-foreground" for="password">Password</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            required
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          />
-        </div>
+        <Input 
+          id="email" 
+          v-model="email" 
+          v-bind="emailProps"
+          type="email" 
+          label="Email" 
+          placeholder="m@example.com" 
+          :error="errors.email"
+        />
 
-        <button
-          type="submit"
-          class="group relative overflow-hidden inline-flex items-center justify-center w-full rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary-hover h-10 py-2 px-4 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0"
-        >
-          <span class="absolute inset-0 w-full h-full bg-white/10 group-hover:bg-transparent transition-colors"></span>
-          <span class="relative z-10">Create Account</span>
-        </button>
+        <Input 
+          id="password" 
+          v-model="password" 
+          v-bind="passwordProps"
+          type="password" 
+          label="Password" 
+          placeholder="Minimum 6 characters" 
+          :error="errors.password"
+        />
+
+        <Button type="submit" :loading="isSubmitting || authStore.loading" customClass="w-full text-md">
+          Create Account
+        </Button>
       </form>
 
       <div class="mt-6 text-center text-sm text-muted-foreground">
-        Already have an account? 
+        Already have an account?
         <router-link to="/login" class="font-medium text-primary hover:underline">Sign in</router-link>
       </div>
     </div>

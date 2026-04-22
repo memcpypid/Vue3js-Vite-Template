@@ -1,16 +1,15 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import userService from '../../services/user.service';
-import ConfirmModal from '../../components/modals/ConfirmModal.vue';
-import UserModal from '../../components/modals/UserModal.vue';
-import { useToast } from '../../composables/useToast';
+import { useUserStore } from '@/stores/user';
+import UserModal from '@/components/modals/UserModal.vue';
+import Badge from '@/components/ui/Badge.vue';
+import Skeleton from '@/components/ui/Skeleton.vue';
 import { Trash2, CheckCircle, XCircle, Loader2, Edit, Plus, ChevronLeft, ChevronRight, Search, RefreshCw } from 'lucide-vue-next';
 
 // State
+const userStore = useUserStore();
 const users = ref([]);
-const loading = ref(true);
 const errorMsg = ref('');
-const toast = useToast();
 
 // Filter State
 const searchQuery = ref('');
@@ -36,14 +35,12 @@ const confirmModalConfig = ref({
 });
 const activeAction = ref(null); // 'delete', 'activate', 'deactivate'
 const selectedUserId = ref(null);
-const isProcessingAction = ref(false);
 
 // User Modal State (Create/Edit)
 const isUserModalOpen = ref(false);
 const editingUser = ref(null);
 
 const loadUsers = async () => {
-  loading.value = true;
   errorMsg.value = '';
   try {
     const params = {
@@ -57,7 +54,7 @@ const loadUsers = async () => {
       params.search = searchQuery.value;
     }
 
-    const res = await userService.getUsers(params);
+    const res = await userStore.getUsers(params);
     const responseData = res.data?.data || {};
     const meta = res.data.meta
 
@@ -70,7 +67,7 @@ const loadUsers = async () => {
   } catch (err) {
     errorMsg.value = err.response?.data?.message || err.message || 'Failed to load users';
   } finally {
-    loading.value = false;
+    // loading state managed by userStore
   }
 };
 
@@ -115,14 +112,19 @@ const openCreateUserModal = () => {
   isUserModalOpen.value = true;
 };
 
-const openEditUserModal = (user) => {
-  editingUser.value = user; // populated object means edit mode
-  isUserModalOpen.value = true;
+const openEditUserModal = async (user) => {
+  selectedUserId.value = user.id;
+  try {
+    const res = await userStore.getUserById(user.id);
+    editingUser.value = res.data.data;
+    isUserModalOpen.value = true;
+  } catch (err) {
+    // Error handled by store toast
+  }
 };
 
 const handleUserModalSuccess = () => {
   // refresh table after user is created or edited
-  toast.success(editingUser.value ? 'User updated successfully' : 'User created successfully');
   loadUsers();
 };
 
@@ -167,27 +169,23 @@ const confirmDeactivate = (id) => {
 const handleConfirmModalConfirm = async () => {
   if (!selectedUserId.value || !activeAction.value) return;
 
-  isProcessingAction.value = true;
   try {
     if (activeAction.value === 'delete') {
-      await userService.deleteUser(selectedUserId.value);
+      await userStore.deleteUser(selectedUserId.value);
     } else if (activeAction.value === 'activate') {
-      await userService.activateUser(selectedUserId.value);
+      await userStore.activateUser(selectedUserId.value);
     } else if (activeAction.value === 'deactivate') {
-      await userService.deactivateUser(selectedUserId.value);
+      await userStore.deactivateUser(selectedUserId.value);
     }
 
     // Refresh table
     await loadUsers();
-    confirmModalConfig.value.title.includes('Delete') 
-      ? toast.success('User deleted successfully')
-      : toast.success('User status updated successfully');
-    
+
     isConfirmModalOpen.value = false;
   } catch (err) {
-    toast.error(err.response?.data?.message || 'Action failed!');
+    // Error is handled by store toast
   } finally {
-    isProcessingAction.value = false;
+    // action loading states are managed by userStore
   }
 };
 </script>
@@ -238,11 +236,7 @@ const handleConfirmModalConfirm = async () => {
         </div>
       </div>
 
-      <div v-if="loading" class="p-12 flex justify-center items-center">
-        <Loader2 class="w-8 h-8 animate-spin text-primary" />
-      </div>
-
-      <div v-else-if="errorMsg" class="p-6 text-center text-rose-500">
+      <div v-if="errorMsg" class="p-6 text-center text-rose-500">
         {{ errorMsg }}
       </div>
 
@@ -258,68 +252,83 @@ const handleConfirmModalConfirm = async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="users.length === 0">
-              <td colspan="5" class="px-6 py-8 text-center bg-card">No users found.</td>
-            </tr>
-            <tr v-for="user in users" :key="user.id"
-              class="bg-card border-b border-border hover:bg-muted/30 transition-colors">
-              <td class="px-6 py-4 font-medium text-foreground whitespace-nowrap">
-                {{ user.name }}
-              </td>
-              <td class="px-6 py-4">
-                {{ user.email }}
-              </td>
-              <td class="px-6 py-4">
-                <span
-                  class="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium uppercase tracking-wider">
-                  {{ user.role }}
-                </span>
-              </td>
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-2">
-                  <div :class="user.is_verified ? 'bg-emerald-500' : 'bg-rose-500'" class="w-2 h-2 rounded-full"></div>
-                  <span>{{ user.is_verified ? 'Verified' : 'Unverified' }}</span>
-                </div>
-              </td>
-              <td class="px-6 py-4 text-right">
-                <div class="flex justify-end items-center gap-2">
-                  <button @click="openEditUserModal(user)"
-                    class="p-2 text-blue-500 hover:bg-blue-100 rounded-lg transition-colors border border-transparent hover:border-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                    title="Edit User">
-                    <Edit class="w-4 h-4" />
-                  </button>
+            <!-- Skeleton Loading Rows -->
+            <template v-if="userStore.loading.fetchAll">
+              <tr v-for="i in pagination.limit" :key="i" class="bg-card border-b border-border">
+                <td class="px-6 py-4"><Skeleton height="1.25rem" width="120px" /></td>
+                <td class="px-6 py-4"><Skeleton height="1.25rem" width="180px" /></td>
+                <td class="px-6 py-4"><Skeleton height="1.5rem" width="60px" /></td>
+                <td class="px-6 py-4"><Skeleton height="1.25rem" width="100px" /></td>
+                <td class="px-6 py-4 text-right flex justify-end gap-2"><Skeleton height="2rem" width="2rem" circle /><Skeleton height="2rem" width="2rem" circle /><Skeleton height="2rem" width="2rem" circle /></td>
+              </tr>
+            </template>
 
-                  <div class="w-px h-4 bg-border mx-1"></div>
+            <!-- Actual Data Rows -->
+            <template v-else>
+              <tr v-if="users.length === 0">
+                <td colspan="5" class="px-6 py-8 text-center bg-card">No users found.</td>
+              </tr>
+              <tr v-for="user in users" :key="user.id"
+                class="bg-card border-b border-border hover:bg-muted/30 transition-colors">
+                <td class="px-6 py-4 font-medium text-foreground whitespace-nowrap">
+                  {{ user.name }}
+                </td>
+                <td class="px-6 py-4">
+                  {{ user.email }}
+                </td>
+                <td class="px-6 py-4">
+                  <Badge>
+                    {{ user.role }}
+                  </Badge>
+                </td>
+                <td class="px-6 py-4">
+                  <Badge :variant="user.is_verified ? 'success' : 'danger'">
+                    <div :class="user.is_verified ? 'bg-emerald-500' : 'bg-rose-500'" class="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0"></div>
+                    {{ user.is_verified ? 'Verified' : 'Unverified' }}
+                  </Badge>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end items-center gap-2">
+                    <button @click="openEditUserModal(user)"
+                      :disabled="userStore.loading.fetchById"
+                      class="p-2 text-blue-500 hover:bg-blue-100 rounded-lg transition-colors border border-transparent hover:border-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Edit User">
+                      <Loader2 v-if="userStore.loading.fetchById && selectedUserId === user.id" class="w-4 h-4 animate-spin" />
+                      <Edit v-else class="w-4 h-4" />
+                    </button>
 
-                  <button v-if="!user.is_verified" @click="confirmActivate(user.id)"
-                    class="p-2 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors border border-transparent hover:border-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                    title="Verify Account">
-                    <CheckCircle class="w-4 h-4" />
-                  </button>
-                  <button v-else @click="confirmDeactivate(user.id)"
-                    class="p-2 text-amber-500 hover:bg-amber-100 rounded-lg transition-colors border border-transparent hover:border-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                    title="Deactivate Account">
-                    <XCircle class="w-4 h-4" />
-                  </button>
-                  <button @click="confirmDelete(user.id)"
-                    class="p-2 text-rose-500 hover:bg-rose-100 rounded-lg transition-colors border border-transparent hover:border-rose-200 focus:outline-none focus:ring-1 focus:ring-rose-400"
-                    title="Delete Account">
-                    <Trash2 class="w-4 h-4" />
-                  </button>
-                </div>
-              </td>
-            </tr>
+                    <div class="w-px h-4 bg-border mx-1"></div>
+
+                    <button v-if="!user.is_verified" @click="confirmActivate(user.id)"
+                      class="p-2 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors border border-transparent hover:border-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      title="Verify Account">
+                      <CheckCircle class="w-4 h-4" />
+                    </button>
+                    <button v-else @click="confirmDeactivate(user.id)"
+                      class="p-2 text-amber-500 hover:bg-amber-100 rounded-lg transition-colors border border-transparent hover:border-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      title="Deactivate Account">
+                      <XCircle class="w-4 h-4" />
+                    </button>
+                    <button @click="confirmDelete(user.id)"
+                      class="p-2 text-rose-500 hover:bg-rose-100 rounded-lg transition-colors border border-transparent hover:border-rose-200 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                      title="Delete Account">
+                      <Trash2 class="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
 
       <!-- Pagination Footer -->
-      <div v-if="!loading && users.length > 0"
+      <div v-if="!userStore.loading.fetchAll && users.length > 0"
         class="p-4 border-t border-border bg-muted/30 flex items-center justify-between">
         <div class="text-sm text-muted-foreground">
           Showing <span class="font-medium text-foreground">{{ (pagination.page - 1) * pagination.limit + 1 }}</span>
           to <span class="font-medium text-foreground">{{ Math.min(pagination.page * pagination.limit, pagination.total)
-            }}</span>
+          }}</span>
           of <span class="font-medium text-foreground">{{ pagination.total }}</span> results
         </div>
         <div class="flex items-center gap-2">
@@ -329,7 +338,7 @@ const handleConfirmModalConfirm = async () => {
           </button>
 
           <span class="text-sm font-medium px-2 text-foreground">Page {{ pagination.page }} of {{ pagination.total_pages
-            }}</span>
+          }}</span>
 
           <button @click="nextPage" :disabled="!pagination.has_next"
             class="p-2 rounded-md border border-border bg-card text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
@@ -341,7 +350,7 @@ const handleConfirmModalConfirm = async () => {
 
     <!-- Multi-purpose Action Modal -->
     <ConfirmModal :is-open="isConfirmModalOpen" :title="confirmModalConfig.title" :message="confirmModalConfig.message"
-      :type="confirmModalConfig.type" :confirm-text="confirmModalConfig.confirmText" :is-loading="isProcessingAction"
+      :type="confirmModalConfig.type" :confirm-text="confirmModalConfig.confirmText" :is-loading="userStore.loading.delete || userStore.loading.action"
       @close="isConfirmModalOpen = false" @confirm="handleConfirmModalConfirm" />
 
     <!-- User Modal (Create/Edit) -->

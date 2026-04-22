@@ -1,5 +1,5 @@
 <script setup>
-import { useAuthStore } from '../../stores/auth';
+import { useAuthStore } from '@/stores/auth';
 const authStore = useAuthStore();
 </script>
 
@@ -24,7 +24,8 @@ const authStore = useAuthStore();
       <div class="bg-card border border-border p-6 rounded-2xl shadow-sm">
         <h2 class="text-xl font-semibold text-foreground mb-4">Quick Actions</h2>
         <div class="flex gap-4">
-          <router-link to="/user/profile" class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors">
+          <router-link to="/user/profile"
+            class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors">
             Edit Profile
           </router-link>
         </div>

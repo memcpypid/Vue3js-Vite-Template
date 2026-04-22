@@ -1,40 +1,48 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '../../stores/auth';
-import { useThemeStore } from '../../stores/theme';
-import { Loader2, Sun, Moon } from 'lucide-vue-next';
+import { useAuthStore } from '@/stores/auth';
+import { useThemeStore } from '@/stores/theme';
+import { Sun, Moon } from 'lucide-vue-next';
+import Input from '@/components/ui/Input.vue';
+import Button from '@/components/ui/Button.vue';
+import * as z from 'zod';
+import { useForm } from 'vee-validate';
+import { toTypedSchema } from '@vee-validate/zod';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
-
-const email = ref('');
-const password = ref('');
 const errorMsg = ref('');
-const loading = ref(false);
 
-const handleLogin = async () => {
+const loginSchema = toTypedSchema(
+  z.object({
+    email: z.string().min(1, 'Email is required').email('Invalid email format'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+  })
+);
+
+const { handleSubmit, errors, defineField, isSubmitting } = useForm({
+  validationSchema: loginSchema,
+});
+
+const [email, emailProps] = defineField('email');
+const [password, passwordProps] = defineField('password');
+
+const onSubmit = handleSubmit(async (values) => {
   errorMsg.value = '';
-  // `loading` is preserved here for UI spin tracking, but store's loading is also available via `authStore.loading`
-  loading.value = true;
   try {
-    // Calling login, which propagates API call and sets state
-    await authStore.login({ email: email.value, password: password.value });
+    await authStore.login(values);
 
-    // Redirect logic utilizing the newly populated `authStore.user` state
     if (authStore.hasRole('admin')) {
       router.push('/admin/dashboard');
     } else {
       router.push('/user/dashboard');
     }
   } catch (error) {
-    // Display error message which might bubble from Axios/Service layer
     errorMsg.value = authStore.error || error.message || 'Login failed';
-  } finally {
-    loading.value = false;
   }
-};
+});
 </script>
 
 <template>
@@ -51,34 +59,38 @@ const handleLogin = async () => {
         <p class="text-sm text-muted-foreground mt-2">Enter your credentials to access your account</p>
       </div>
 
-      <form @submit.prevent="handleLogin" class="space-y-6">
+      <form @submit="onSubmit" class="space-y-6">
         <div v-if="errorMsg" class="p-3 text-sm bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-lg">
           {{ errorMsg }}
         </div>
 
-        <div class="space-y-2">
-          <label class="text-sm font-medium leading-none text-foreground" for="email">Email</label>
-          <input id="email" v-model="email" type="email" required
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="admin@example.com or user@example.com" />
-        </div>
+        <Input 
+          id="email" 
+          v-model="email" 
+          v-bind="emailProps"
+          type="email" 
+          label="Email" 
+          placeholder="admin@example.com or user@example.com" 
+          :error="errors.email"
+        />
 
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="text-sm font-medium leading-none text-foreground" for="password">Password</label>
+        <Input 
+          id="password" 
+          v-model="password" 
+          v-bind="passwordProps"
+          type="password" 
+          label="Password" 
+          placeholder="password"
+          :error="errors.password"
+        >
+          <template #label-extra>
             <a href="#" class="text-sm text-primary hover:underline">Forgot password?</a>
-          </div>
-          <input id="password" v-model="password" type="password" required
-            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="password" />
-        </div>
+          </template>
+        </Input>
 
-        <button type="submit" :disabled="loading"
-          class="group relative overflow-hidden inline-flex items-center justify-center w-full rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary-hover h-10 py-2 px-4 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">
-          <span class="absolute inset-0 w-full h-full bg-white/10 group-hover:bg-transparent transition-colors"></span>
-          <Loader2 v-if="loading" class="w-4 h-4 mr-2 animate-spin relative z-10" />
-          <span class="relative z-10">{{ loading ? 'Signing in...' : 'Sign in' }}</span>
-        </button>
+        <Button type="submit" :loading="isSubmitting || authStore.loading" customClass="w-full text-md">
+          {{ isSubmitting || authStore.loading ? 'Signing in...' : 'Sign in' }}
+        </Button>
       </form>
 
       <div class="mt-6 text-center text-sm text-muted-foreground">
@@ -92,11 +104,11 @@ const handleLogin = async () => {
           class="flex justify-center gap-4 text-xs font-mono bg-secondary p-3 rounded-lg overflow-x-auto text-secondary-foreground">
           <div>
             <b>Admin:</b><br />
-            admin@example.com
+            admin@mail.com
           </div>
           <div>
             <b>User:</b><br />
-            user@example.com
+            user@mail.com
           </div>
         </div>
       </div>

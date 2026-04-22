@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { useAuthStore } from "../stores/auth";
+import { useAuthStore } from "@/stores/auth";
+import { useTitle } from "@vueuse/core";
+import NProgress from "nprogress";
 
 const routes = [
   {
@@ -8,65 +10,65 @@ const routes = [
   },
   {
     path: "/",
-    component: () => import("../layouts/AuthLayout.vue"),
+    component: () => import("@/layouts/AuthLayout.vue"),
     children: [
       {
         path: "login",
         name: "Login",
-        component: () => import("../views/auth/Login.vue"),
+        component: () => import("@/views/auth/Login.vue"),
         meta: { guest: true },
       },
       {
         path: "register",
         name: "Register",
-        component: () => import("../views/auth/Register.vue"),
+        component: () => import("@/views/auth/Register.vue"),
         meta: { guest: true },
       },
     ],
   },
   {
     path: "/admin",
-    component: () => import("../layouts/AdminLayout.vue"),
+    component: () => import("@/layouts/AdminLayout.vue"),
     meta: { requiresAuth: true, role: "admin" },
     children: [
       {
         path: "dashboard",
         name: "AdminDashboard",
-        component: () => import("../views/admin/Dashboard.vue"),
+        component: () => import("@/views/admin/Dashboard.vue"),
       },
       {
         path: "users",
         name: "AdminUsers",
-        component: () => import("../views/admin/Users.vue"),
+        component: () => import("@/views/admin/Users.vue"),
       },
       {
         path: "settings",
         name: "AdminSettings",
-        component: () => import("../views/admin/Settings.vue"),
+        component: () => import("@/views/admin/Settings.vue"),
       },
     ],
   },
   {
     path: "/user",
-    component: () => import("../layouts/UserLayout.vue"),
+    component: () => import("@/layouts/UserLayout.vue"),
     meta: { requiresAuth: true, role: "user" },
     children: [
       {
         path: "dashboard",
         name: "UserDashboard",
-        component: () => import("../views/user/Dashboard.vue"),
+        component: () => import("@/views/user/Dashboard.vue"),
       },
       {
         path: "profile",
         name: "UserProfile",
-        component: () => import("../views/user/Profile.vue"),
+        component: () => import("@/views/user/Profile.vue"),
       },
     ],
   },
   {
     path: "/:pathMatch(.*)*",
     name: "NotFound",
-    component: () => import("../views/NotFound.vue"),
+    component: () => import("@/views/NotFound.vue"),
   },
 ];
 
@@ -75,7 +77,11 @@ const router = createRouter({
   routes,
 });
 
+// Configure NProgress
+NProgress.configure({ showSpinner: false });
+
 router.beforeEach((to, from, next) => {
+  NProgress.start();
   const authStore = useAuthStore();
   const isAuthenticated = authStore.isAuthenticated();
   const userRole = authStore.user?.role;
@@ -104,6 +110,15 @@ router.beforeEach((to, from, next) => {
   } else {
     next();
   }
+});
+
+router.afterEach((to) => {
+  // Dynamic Title
+  const title = useTitle();
+  const baseTitle = "Vue3 Vite Template";
+  title.value = to.name ? `${to.name} | ${baseTitle}` : baseTitle;
+  
+  NProgress.done();
 });
 
 export default router;

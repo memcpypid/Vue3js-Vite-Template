@@ -1,6 +1,6 @@
 <script setup>
-import { useAuthStore } from '../stores/auth';
-import { useThemeStore } from '../stores/theme';
+import { useAuthStore } from '@/stores/auth';
+import { useThemeStore } from '@/stores/theme';
 import { LogOut, Sun, Moon, LayoutDashboard, Settings, Users, Menu } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -62,8 +62,24 @@ const logout = () => {
 
       <!-- Page Content -->
       <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </main>
     </div>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
