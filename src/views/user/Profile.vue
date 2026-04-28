@@ -1,9 +1,10 @@
 <script setup>
 import { onMounted } from 'vue';
-import { Loader2, Save } from 'lucide-vue-next';
+import { Save } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
-import Input from '@/components/ui/Input.vue';
-import Button from '@/components/ui/Button.vue';
+import BaseInput from '@/components/ui/BaseInput.vue';
+import BaseButton from '@/components/ui/BaseButton.vue';
+import BaseCard from '@/components/ui/BaseCard.vue';
 
 const authStore = useAuthStore();
 
@@ -23,7 +24,7 @@ const handleSave = async () => {
       <p class="text-muted-foreground mt-2">Manage your account settings and preferences.</p>
     </div>
 
-    <div class="bg-card border border-border shadow-sm rounded-xl overflow-hidden">
+    <BaseCard bodyClass="p-0">
       <div class="p-6 sm:p-8 space-y-6">
         <div class="flex items-center gap-6">
           <div
@@ -43,21 +44,21 @@ const handleSave = async () => {
         <div class="border-t border-border pt-6">
           <h3 class="text-lg font-medium text-foreground mb-4">Personal Information</h3>
           <form class="space-y-4" @submit.prevent="handleSave">
-            <Input 
+            <BaseInput 
               id="name" 
               v-model="authStore.profileForm.name" 
               label="Full Name" 
               required 
             />
             
-            <Input 
+            <BaseInput 
               id="email" 
               :model-value="authStore.user?.email" 
               label="Email" 
-              readonly 
+              disabled
             />
 
-            <Input 
+            <BaseInput 
               id="password" 
               v-model="authStore.profileForm.password" 
               type="password" 
@@ -66,14 +67,14 @@ const handleSave = async () => {
             />
 
             <div class="pt-4 flex justify-end">
-              <Button type="submit" :loading="authStore.loading">
-                <template #icon-left><Save class="w-4 h-4 mr-2" /></template>
-                {{ authStore.loading ? 'Saving Changes...' : 'Save Changes' }}
-              </Button>
+              <BaseButton type="submit" :loading="authStore.loading.update" variant="primary">
+                <Save class="w-4 h-4 mr-2" />
+                {{ authStore.loading.update ? 'Saving Changes...' : 'Save Changes' }}
+              </BaseButton>
             </div>
           </form>
         </div>
       </div>
-    </div>
+    </BaseCard>
   </div>
 </template>

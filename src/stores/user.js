@@ -1,133 +1,179 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
-import userService from "@/services/user.service";
-import { useToast } from "@/composables/useToast";
+import { ref, computed } from "vue";
+import UserService from "../services/user.service";
+import { withLoading, handleResponse } from "../utils/storeUtils";
 
 export const useUserStore = defineStore("user", () => {
-  const toast = useToast();
-  
+  // --- 1. STATE ---
+
+  // Data State
+  const users = ref([]);
+  const currentUser = ref(null);
+
+  // Form State
+  const initialForm = {
+    name: "",
+    email: "",
+    password: "",
+    role: "user",
+  };
+  const form = ref({ ...initialForm });
+
+  // UI State (Loading, Pagination, Filters)
   const loading = ref({
     fetchAll: false,
     fetchById: false,
     create: false,
     update: false,
     delete: false,
-    action: false
+    action: false,
   });
 
-  const getUsers = async (params = {}) => {
-    loading.value.fetchAll = true;
-    try {
-      return await userService.getUsers(params);
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message || err.message || "Failed to fetch users",
-      );
-      throw err;
-    } finally {
-      loading.value.fetchAll = false;
-    }
+  const pagination = ref({
+    page: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 0,
+    has_next: false,
+    has_previous: false,
+  });
+
+  const searchQuery = ref("");
+  const startDate = ref("");
+  const endDate = ref("");
+  const sort = ref("desc");
+  const sortBy = ref("created_at");
+
+  // --- 2. GETTERS ---
+
+  const allUsers = computed(() => users.value);
+  const isEditing = computed(() => !!currentUser.value);
+
+  // --- 3. ACTIONS ---
+
+  /**
+   * Form Management
+   */
+  const resetForm = () => {
+    form.value = { ...initialForm };
+    currentUser.value = null;
   };
 
-  const getUserById = async (id) => {
-    loading.value.fetchById = true;
-    try {
-      return await userService.getUserById(id);
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message || err.message || "Failed to fetch user",
-      );
-      throw err;
-    } finally {
-      loading.value.fetchById = false;
-    }
+  const setForm = (userData) => {
+    currentUser.value = userData;
+    form.value = {
+      name: userData.name || "",
+      email: userData.email || "",
+      password: "", // Usually keep empty on edit
+      role: userData.role || "user",
+    };
   };
 
-  const getCountUser = async () => {
-    try {
-      return await userService.getCountUser();
-    } catch (err) {
-      console.error("Error fetching count user:", err);
-      throw err;
-    }
-  };
+  /**
+   * API Actions
+   */
+  const fetchUsers = async (params = {}) => {
+    return withLoading(loading, "fetchAll", async () => {
+      const fetchParams = {
+        page: pagination.value.page || 1,
+        limit: pagination.value.limit || 10,
+        sort: sort.value,
+        sort_by: sortBy.value,
+        search: searchQuery.value,
+        start_date: startDate.value,
+        end_date: endDate.value,
+        ...params,
+      };
+      const res = await handleResponse(UserService.getUsers(fetchParams));
 
-  const updateUser = async (id, payload) => {
-    loading.value.update = true;
-    try {
-      const res = await userService.updateUser(id, payload);
-      toast.success("User updated successfully");
+      // Update state based on standard response format
+      // res is response.data -> { success, data: { users, pagination } }
+      if (res.data) {
+        users.value = res.data || [];
+        pagination.value = res.meta || pagination.value;
+      }
+
       return res;
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message || err.message || "Failed to update user",
-      );
-      throw err;
-    } finally {
-      loading.value.update = false;
-    }
+    });
+  };
+
+  const fetchUserById = async (id) => {
+    return withLoading(loading, "fetchById", async () => {
+      const res = await handleResponse(UserService.getUserById(id));
+      if (res.data) {
+        setForm(res.data);
+      }
+      return res.data;
+    });
+  };
+
+  const submitForm = async () => {
+    const action = isEditing.value ? "update" : "create";
+    return withLoading(loading, action, async () => {
+      let res;
+      if (isEditing.value) {
+        res = await handleResponse(
+          UserService.updateUser(currentUser.value.id, form.value),
+        );
+      } else {
+        res = await handleResponse(UserService.createUser(form.value));
+      }
+      resetForm();
+      await fetchUsers(); // Refresh list
+      return res.data;
+    });
   };
 
   const deleteUser = async (id) => {
-    loading.value.delete = true;
-    try {
-      const res = await userService.deleteUser(id);
-      toast.success("User deleted successfully");
-      return res;
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message || err.message || "Failed to delete user",
-      );
-      throw err;
-    } finally {
-      loading.value.delete = false;
-    }
+    return withLoading(loading, "delete", async () => {
+      await handleResponse(UserService.deleteUser(id));
+      await fetchUsers(); // Refresh list
+      return true;
+    });
   };
 
-  const activateUser = async (id) => {
-    loading.value.action = true;
-    try {
-      const res = await userService.activateUser(id);
-      toast.success("User status updated successfully");
-      return res;
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to verify account",
-      );
-      throw err;
-    } finally {
-      loading.value.action = false;
-    }
+  const toggleUserStatus = async (id, isVerified) => {
+    return withLoading(loading, "action", async () => {
+      if (isVerified) {
+        await handleResponse(UserService.deactivateUser(id));
+      } else {
+        await handleResponse(UserService.activateUser(id));
+      }
+      await fetchUsers(); // Refresh list
+      return true;
+    });
   };
 
-  const deactivateUser = async (id) => {
-    loading.value.action = true;
-    try {
-      const res = await userService.deactivateUser(id);
-      toast.success("User status updated successfully");
-      return res;
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to deactivate account",
-      );
-      throw err;
-    } finally {
-      loading.value.action = false;
-    }
+  const getCountUser = async () => {
+    return withLoading(loading, "action", async () => {
+      const res = await handleResponse(UserService.getCountUser());
+      return res.data;
+    });
   };
 
   return {
+    // State
+    users,
+    currentUser,
+    form,
     loading,
-    getUsers,
-    getUserById,
-    getCountUser,
-    updateUser,
+    pagination,
+    searchQuery,
+    startDate,
+    endDate,
+    sort,
+    sortBy,
+    // Getters
+    allUsers,
+    isEditing,
+    // Actions
+    resetForm,
+    setForm,
+    fetchUsers,
+    fetchUserById,
+    submitForm,
     deleteUser,
-    activateUser,
-    deactivateUser,
+    toggleUserStatus,
+    getCountUser,
   };
 });

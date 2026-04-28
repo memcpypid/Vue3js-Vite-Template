@@ -2,17 +2,15 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { useThemeStore } from '@/stores/theme';
-import { Sun, Moon } from 'lucide-vue-next';
-import Input from '@/components/ui/Input.vue';
-import Button from '@/components/ui/Button.vue';
+import BaseInput from '@/components/ui/BaseInput.vue';
+import BaseButton from '@/components/ui/BaseButton.vue';
+import ThemeToggle from '@/components/ui/ThemeToggle.vue';
 import * as z from 'zod';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
 
 const router = useRouter();
 const authStore = useAuthStore();
-const themeStore = useThemeStore();
 const errorMsg = ref('');
 
 const registerSchema = toTypedSchema(
@@ -48,11 +46,9 @@ const onSubmit = handleSubmit(async (values) => {
 
 <template>
   <div class="relative">
-    <button @click="themeStore.toggleDark()"
-      class="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground">
-      <Moon v-if="!themeStore.isDark" class="w-5 h-5" />
-      <Sun v-else class="w-5 h-5 text-yellow-500" />
-    </button>
+    <div class="absolute top-4 right-4">
+      <ThemeToggle variant="ghost" />
+    </div>
 
     <div class="p-8">
       <div class="text-center mb-8">
@@ -65,7 +61,7 @@ const onSubmit = handleSubmit(async (values) => {
           {{ errorMsg }}
         </div>
 
-        <Input 
+        <BaseInput 
           id="name" 
           v-model="name" 
           v-bind="nameProps"
@@ -75,7 +71,7 @@ const onSubmit = handleSubmit(async (values) => {
           :error="errors.name"
         />
 
-        <Input 
+        <BaseInput 
           id="email" 
           v-model="email" 
           v-bind="emailProps"
@@ -85,7 +81,7 @@ const onSubmit = handleSubmit(async (values) => {
           :error="errors.email"
         />
 
-        <Input 
+        <BaseInput 
           id="password" 
           v-model="password" 
           v-bind="passwordProps"
@@ -95,9 +91,9 @@ const onSubmit = handleSubmit(async (values) => {
           :error="errors.password"
         />
 
-        <Button type="submit" :loading="isSubmitting || authStore.loading" customClass="w-full text-md">
+        <BaseButton type="submit" :loading="isSubmitting || authStore.loading.register" variant="primary" class="w-full">
           Create Account
-        </Button>
+        </BaseButton>
       </form>
 
       <div class="mt-6 text-center text-sm text-muted-foreground">

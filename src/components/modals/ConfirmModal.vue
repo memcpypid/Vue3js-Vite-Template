@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { AlertTriangle, Info } from 'lucide-vue-next';
-import Button from '@/components/ui/Button.vue';
+import { Loader2, AlertTriangle, Info } from 'lucide-vue-next';
 
 const props = defineProps({
   isOpen: {
@@ -10,19 +9,19 @@ const props = defineProps({
   },
   title: {
     type: String,
-    default: 'Confirm Action'
+    default: 'Konfirmasi Aksi'
   },
   message: {
     type: String,
-    default: 'Are you sure you want to perform this action?'
+    default: 'Apakah Anda yakin ingin melakukan aksi ini?'
   },
   confirmText: {
     type: String,
-    default: 'Confirm'
+    default: 'Konfirmasi'
   },
   cancelText: {
     type: String,
-    default: 'Cancel'
+    default: 'Batal'
   },
   type: {
     type: String,
@@ -39,73 +38,70 @@ const emit = defineEmits(['close', 'confirm']);
 
 // Computed styles based on type
 const iconStyle = computed(() => {
-  if (props.type === 'danger') return 'bg-rose-500/10 text-rose-500';
-  if (props.type === 'warning') return 'bg-amber-500/10 text-amber-500';
-  return 'bg-blue-500/10 text-blue-500';
+  if (props.type === 'danger') return 'bg-rose-100 text-rose-600';
+  if (props.type === 'warning') return 'bg-amber-100 text-amber-600';
+  return 'bg-blue-100 text-blue-600';
 });
 
-const buttonVariant = computed(() => {
-  if (props.type === 'danger') return 'danger';
-  return 'primary'; 
+const buttonStyle = computed(() => {
+  if (props.type === 'danger') return 'bg-rose-500 hover:bg-rose-600 text-white focus:ring-rose-500';
+  if (props.type === 'warning') return 'bg-amber-500 hover:bg-amber-600 text-white focus:ring-amber-500';
+  return 'bg-blue-500 hover:bg-blue-600 text-white focus:ring-blue-500';
 });
 </script>
 
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog"
-    aria-modal="true">
-    <!-- Backdrop overlay -->
-    <div class="fixed inset-0 bg-black/10 bg-opacity-100 transition-opacity backdrop-blur-sm"
-      @click="!isLoading && emit('close')" aria-hidden="true"></div>
+  <Teleport to="body">
+    <div v-if="isOpen" class="fixed inset-0 z-[100] overflow-y-auto" aria-labelledby="modal-title" role="dialog"
+      aria-modal="true">
+      <!-- Backdrop overlay -->
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" @click="!isLoading && emit('close')"
+        aria-hidden="true"></div>
 
-    <!-- Modal Panel -->
-    <div class="flex min-h-screen items-end justify-center p-4 text-center sm:items-center sm:p-0">
-      <div
-        class="relative transform overflow-hidden rounded-lg bg-card text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-border"
-        @click.stop>
-        <div class="bg-card px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-          <div class="sm:flex sm:items-start">
-            <!-- Icon -->
-            <div class="mx-auto flex h-12 w-12  items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10"
-              :class="iconStyle">
-              <AlertTriangle v-if="type === 'danger' || type === 'warning'" class="h-6 w-6" aria-hidden="true" />
-              <Info v-else class="h-6 w-6" aria-hidden="true" />
-            </div>
+      <!-- Modal Panel -->
+      <div class="flex min-h-screen items-end justify-center p-4 text-center sm:items-center sm:p-0">
+        <div
+          class="relative transform overflow-hidden rounded-[32px] bg-card text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-white/10"
+          @click.stop>
+          <div class="bg-card px-4 pb-4 pt-5 sm:p-8 sm:pb-6">
+            <div class="sm:flex sm:items-start">
+              <!-- Icon -->
+              <div
+                class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl sm:mx-0 sm:h-12 sm:w-12 shadow-inner"
+                :class="iconStyle">
+                <AlertTriangle v-if="type === 'danger' || type === 'warning'" class="h-6 w-6" aria-hidden="true" />
+                <Info v-else class="h-6 w-6" aria-hidden="true" />
+              </div>
 
-            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-              <h3 class="text-lg font-semibold leading-6 text-foreground" id="modal-title">
-                {{ title }}
-              </h3>
-              <div class="mt-2">
-                <p class="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {{ message }}
-                </p>
+              <div class="mt-3 text-center sm:ml-6 sm:mt-0 sm:text-left">
+                <h3 class="text-xl font-heading font-black leading-6 text-foreground uppercase tracking-tight"
+                  id="modal-title">
+                  {{ title }}
+                </h3>
+                <div class="mt-2">
+                  <p class="text-sm text-muted-foreground font-body leading-relaxed">
+                    {{ message }}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="bg-muted/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:gap-3 sm:px-6">
-          <Button 
-            type="button" 
-            :variant="buttonVariant" 
-            :loading="isLoading" 
-            @click="emit('confirm')"
-            customClass="w-full sm:w-auto"
-          >
-            {{ confirmText }}
-          </Button>
-          
-          <Button 
-            type="button" 
-            variant="ghost" 
-            :disabled="isLoading" 
-            @click="emit('close')"
-            customClass="w-full sm:w-auto mt-3 sm:mt-0"
-          >
-            {{ cancelText }}
-          </Button>
+          <div class="px-4 py-4 sm:flex sm:flex-row-reverse sm:px-8 border-t border-white/5 bg-secondary/30 gap-3">
+            <button type="button"
+              class="inline-flex w-full justify-center rounded-2xl px-6 py-3 text-sm font-black uppercase tracking-widest shadow-lg transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="buttonStyle" @click="emit('confirm')" :disabled="isLoading">
+              <Loader2 v-if="isLoading" class="w-4 h-4 mr-2 animate-spin" />
+              {{ confirmText }}
+            </button>
+            <button type="button"
+              class="mt-3 inline-flex w-full justify-center rounded-2xl bg-transparent px-6 py-3 text-sm font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all sm:mt-0 sm:w-auto"
+              @click="emit('close')" :disabled="isLoading">
+              {{ cancelText }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>

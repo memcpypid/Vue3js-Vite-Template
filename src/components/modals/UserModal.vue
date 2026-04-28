@@ -1,185 +1,97 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
-import { Loader2, X } from 'lucide-vue-next';
-import { useAuthStore } from '@/stores/auth';
-import { useUserStore } from '@/stores/user';
-import Input from '@/components/ui/Input.vue';
-import Button from '@/components/ui/Button.vue';
-import Select from '@/components/ui/Select.vue';
+import { ref, computed } from 'vue';
+import { EyeIcon, EyeOff } from 'lucide-vue-next';
+import BaseModal from './BaseModal.vue';
+import BaseButton from '../ui/BaseButton.vue';
+import BaseInput from '../ui/BaseInput.vue';
+import { useUserStore } from '../../stores/user';
+import { ROLE_LABEL } from '../../constants/roles';
 
 const props = defineProps({
   isOpen: {
     type: Boolean,
     required: true
-  },
-  user: {
-    type: Object,
-    default: null // If null, mode is Create. If object, mode is Edit.
   }
 });
 
 const emit = defineEmits(['close', 'success']);
-const authStore = useAuthStore();
 const userStore = useUserStore();
+
 const errorMsg = ref('');
-const isSubmitting = computed(() => isEditMode.value ? userStore.loading.update : authStore.loading);
+const visiblePassword = ref(false);
 
-// Form Data
-const formData = ref({
-  name: '',
-  email: '',
-  password: '',
-  role: 'user'
-});
+const title = computed(() => userStore.isEditing ? 'Edit User' : 'Add New User');
+const submitText = computed(() => userStore.isEditing ? 'Save Changes' : 'Add User');
+const isLoading = computed(() => userStore.isEditing ? userStore.loading.update : userStore.loading.create);
 
-const isEditMode = computed(() => !!props.user);
-const title = computed(() => isEditMode.value ? 'Edit User' : 'Create New User');
-const submitText = computed(() => isEditMode.value ? 'Save Changes' : 'Create User');
-
-// Watch for prop changes to populate form when editing
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    errorMsg.value = '';
-    if (props.user) {
-      formData.value = {
-        name: props.user.name || '',
-        email: props.user.email || '',
-        password: '', // blank by default for edit
-        role: props.user.role || 'user'
-      };
-    } else {
-      // Reset for create
-      formData.value = {
-        name: '',
-        email: '',
-        password: '',
-        role: 'user'
-      };
-    }
-  }
-});
+const togglePasswordVisibility = () => {
+  visiblePassword.value = !visiblePassword.value;
+};
 
 const handleSubmit = async () => {
   errorMsg.value = '';
 
-  if (!isEditMode.value && formData.value.password.length < 6) {
-    errorMsg.value = 'Password must be at least 6 characters.';
-    return;
-  }
-
-  if (isEditMode.value && formData.value.password && formData.value.password.length < 6) {
+  // Simple validation
+  if (!userStore.isEditing && userStore.form.password.length < 6) {
     errorMsg.value = 'Password must be at least 6 characters.';
     return;
   }
 
   try {
-    if (isEditMode.value) {
-      // Create a clean payload, omit password if blank
-      const payload = {
-        name: formData.value.name,
-        email: formData.value.email,
-        role: formData.value.role,
-      };
-      if (formData.value.password) {
-        payload.password = formData.value.password;
-      }
-
-      await userStore.updateUser(props.user.id, payload);
-    } else {
-      // Create user using the auth register endpoints
-      await authStore.register(formData.value);
-    }
-
+    await userStore.submitForm();
     emit('success');
     emit('close');
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || err.message || 'Operation failed';
-  } finally {
-    // loading managed by stores
+    errorMsg.value = err.message || 'Operation failed';
   }
 };
 </script>
 
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog"
-    aria-modal="true">
-    <!-- Backdrop overlay -->
-    <div class="fixed inset-0 bg-black/10 transition-opacity backdrop-blur-sm" @click="!isSubmitting && emit('close')"
-      aria-hidden="true"></div>
-
-    <!-- Modal Panel -->
-    <div class="flex min-h-screen items-end justify-center p-4 text-center sm:items-center sm:p-0">
-      <div
-        class="relative transform overflow-hidden rounded-lg bg-card text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-border"
-        @click.stop>
-        <div class="bg-card px-4 pb-4 pt-5 sm:p-6">
-          <div class="flex justify-between items-center mb-5">
-            <h3 class="text-lg font-semibold leading-6 text-foreground" id="modal-title">
-              {{ title }}
-            </h3>
-            <button @click="emit('close')" :disabled="isSubmitting" class="text-muted-foreground hover:text-foreground">
-              <X class="w-5 h-5" />
-            </button>
-          </div>
-
-          <div v-if="errorMsg"
-            class="mb-4 p-3 text-sm bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-lg">
-            {{ errorMsg }}
-          </div>
-
-          <form @submit.prevent="handleSubmit" class="space-y-4">
-            <Input 
-              id="name" 
-              v-model="formData.name" 
-              type="text" 
-              label="Full Name" 
-              required 
-              placeholder="John Doe" 
-            />
-
-            <Input 
-              id="email" 
-              v-model="formData.email" 
-              type="email" 
-              label="Email" 
-              required 
-              placeholder="john@example.com" 
-            />
-
-            <Select 
-              id="role" 
-              v-model="formData.role" 
-              label="Role" 
-              required
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </Select>
-
-            <Input 
-              id="password" 
-              v-model="formData.password" 
-              type="password" 
-              label="Password" 
-              :required="!isEditMode" 
-              placeholder="Minimum 6 characters"
-            >
-              <template #label-extra>
-                <span v-if="isEditMode" class="text-muted-foreground font-normal text-xs">(Leave blank to keep current)</span>
-              </template>
-            </Input>
-
-            <div class="pt-4 flex justify-end gap-3 border-t border-border mt-6">
-              <Button type="button" variant="outline" @click="emit('close')" :disabled="isSubmitting" customClass="w-full sm:w-auto">
-                Cancel
-              </Button>
-              <Button type="submit" :loading="isSubmitting" customClass="w-full sm:w-auto">
-                {{ submitText }}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
+  <BaseModal :show="isOpen" :title="title" size="md" :loading="isLoading" @close="emit('close')">
+    <div v-if="errorMsg"
+      class="mb-6 p-4 text-xs font-bold uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-2xl animate-fade-in">
+      {{ errorMsg }}
     </div>
-  </div>
+
+    <form id="userForm" @submit.prevent="handleSubmit" class="space-y-4 py-2">
+      <BaseInput v-model="userStore.form.name" label="Full Name" placeholder="John Doe" required />
+
+      <BaseInput v-model="userStore.form.email" type="email" label="Email Address" placeholder="john@example.com"
+        required />
+
+      <div class="space-y-2">
+        <label class="text-xs font-bold text-foreground uppercase tracking-widest">User Role</label>
+        <select v-model="userStore.form.role" required
+          class="w-full h-12 bg-secondary border border-border rounded-2xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground cursor-pointer">
+          <option v-for="(label, value) in ROLE_LABEL" :key="value" :value="value">
+            {{ label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="relative">
+        <BaseInput v-model="userStore.form.password" :type="visiblePassword ? 'text' : 'password'"
+          :label="userStore.isEditing ? 'Password (Optional)' : 'Password'"
+          :placeholder="userStore.isEditing ? 'Leave blank to keep current' : 'Minimum 6 characters'" :required="!userStore.isEditing">
+          <template #iconRight>
+            <button type="button" @click="togglePasswordVisibility"
+              class="text-muted-foreground hover:text-primary transition-colors pr-2">
+              <EyeOff v-if="visiblePassword" class="w-4 h-4" />
+              <EyeIcon v-else class="w-4 h-4" />
+            </button>
+          </template>
+        </BaseInput>
+      </div>
+    </form>
+
+    <template #footer>
+      <BaseButton type="button" variant="ghost" fullWidth @click="emit('close')" :disabled="isLoading">
+        Cancel
+      </BaseButton>
+      <BaseButton type="submit" form="userForm" variant="primary" fullWidth :loading="isLoading">
+        {{ submitText }}
+      </BaseButton>
+    </template>
+  </BaseModal>
 </template>

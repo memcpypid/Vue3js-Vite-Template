@@ -57,6 +57,15 @@ class UserService {
   }
 
   /**
+   * Create a new user (Admin only)
+   * @param {Object} payload - User details (name, email, password, role)
+   * @returns {Promise<import('axios').AxiosResponse<{success: boolean, message: string, data: UserResponse}>>}
+   */
+  createUser(payload) {
+    return api.post("/api/v1/users", payload);
+  }
+
+  /**
    * Update a user's details
    * @param {string} id
    * @param {UpdateUserRequest} payload

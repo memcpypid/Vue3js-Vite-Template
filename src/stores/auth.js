@@ -1,32 +1,45 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import authService from "@/services/auth.service";
 import { useToast } from "@/composables/useToast";
+import { withLoading, handleResponse } from "@/utils/storeUtils";
 
 export const useAuthStore = defineStore("auth", () => {
   const toast = useToast();
+  const router = useRouter();
+
   // State
   const user = ref(JSON.parse(localStorage.getItem("user")) || null);
   const token = ref(localStorage.getItem("token") || null);
   const refreshToken = ref(localStorage.getItem("refreshToken") || null);
-  const loading = ref(false);
+  const loading = ref({
+    login: false,
+    logout: false,
+    profile: false,
+    update: false,
+    register: false,
+    action: false,
+  });
   const error = ref(null);
 
   // Profile Form specific state
   const profileForm = ref({
-    name: '',
-    password: ''
+    name: "",
+    password: "",
   });
+
+  // Getters
+  const isAuthenticated = computed(() => !!token.value);
+  const isAdmin = computed(() => user.value?.role === "admin");
+  const currentUser = computed(() => user.value);
 
   const initProfileForm = () => {
     if (user.value) {
-      profileForm.value.name = user.value.name || '';
-      profileForm.value.password = '';
+      profileForm.value.name = user.value.name || "";
+      profileForm.value.password = "";
     }
   };
-  
-  const router = useRouter();
 
   // Internal helpers
   const setAuthData = (userData, accessToken, refreshTok = null) => {
@@ -51,130 +64,108 @@ export const useAuthStore = defineStore("auth", () => {
 
   // Actions
   const login = async (credentials) => {
-    loading.value = true;
     error.value = null;
-    try {
-      const response = await authService.login(credentials);
+    return withLoading(loading, "login", async () => {
+      try {
+        const res = await handleResponse(authService.login(credentials));
+        const { user: userData, access_token, refresh_token } = res.data;
 
-      // Adapt directly to Go SuccessResponse -> Data -> LoginResponse
-      const resData = response.data?.data;
-      if (!resData || !resData.access_token) {
-        throw new Error("Invalid response structure: No token received.");
+        if (!access_token) throw new Error("No token received");
+
+        setAuthData(userData, access_token, refresh_token);
+        return res;
+      } catch (err) {
+        error.value = err.message || "Login failed";
+        throw err;
       }
-
-      const { user: userData, access_token, refresh_token } = resData;
-      setAuthData(userData, access_token, refresh_token);
-
-      return response;
-    } catch (err) {
-      error.value =
-        err.response?.data?.message ||
-        err.message ||
-        "Login failed. Please check your credentials.";
-      throw err;
-    } finally {
-      loading.value = false;
-    }
+    });
   };
 
   const logout = async () => {
-    loading.value = true;
-    try {
-      if (token.value) {
-        await authService.logout(refreshToken.value);
+    return withLoading(loading, "logout", async () => {
+      try {
+        if (token.value) {
+          await authService.logout(refreshToken.value);
+        }
+      } catch (err) {
+        console.error("Server-side logout failed:", err);
+      } finally {
+        clearAuthData();
+        router.push({ name: "Login" });
       }
-    } catch (err) {
-      console.error("Server-side logout failed:", err);
-    } finally {
-      clearAuthData();
-      loading.value = false;
-      router.push({ name: "Login" });
-    }
+    });
   };
 
   const fetchProfile = async () => {
-    loading.value = true;
-    try {
-      const response = await authService.fetchProfile();
-      // Maps to Go SuccessResponse -> Data (Assuming it returns UserResponse directly)
-      const resData = response.data?.data;
-      if (resData) {
-        user.value = resData;
-        localStorage.setItem("user", JSON.stringify(user.value));
+    return withLoading(loading, "profile", async () => {
+      try {
+        const res = await handleResponse(authService.fetchProfile());
+        if (res && res.data) {
+          user.value = res.data;
+          localStorage.setItem("user", JSON.stringify(user.value));
+        }
+      } catch (err) {
+        if (err.response?.status === 401) {
+          await logout();
+        }
+        throw err;
       }
-    } catch (err) {
-      console.error("Failed to fetch profile", err);
-      if (err.response?.status === 401) {
-        await logout();
-      }
-    } finally {
-      loading.value = false;
-    }
+    });
   };
 
   const updateProfile = async () => {
-    loading.value = true;
-    try {
-      const payload = { name: profileForm.value.name };
-      // Only send password if user wants to change it
-      if (profileForm.value.password) {
-        if (profileForm.value.password.length < 6) {
-          throw new Error('Password must be at least 6 characters');
+    return withLoading(loading, "update", async () => {
+      try {
+        const payload = { name: profileForm.value.name };
+        if (profileForm.value.password) {
+          if (profileForm.value.password.length < 6) {
+            throw new Error("Password must be at least 6 characters");
+          }
+          payload.password = profileForm.value.password;
         }
-        payload.password = profileForm.value.password;
+
+        await handleResponse(authService.updateProfile(payload));
+        await fetchProfile();
+
+        toast.success("Profile updated successfully!");
+        profileForm.value.password = "";
+      } catch (err) {
+        toast.error(err.message || "Failed to update profile settings");
+        throw err;
       }
-      
-      const res = await authService.updateProfile(payload);
-      
-      // Refresh global user state after update
-      await fetchProfile();
-      
-      toast.success('Profile updated successfully!');
-      profileForm.value.password = ''; // clear password field for safety
-      return res;
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to update profile settings');
-      // throw err; // optional: throw if components need to know, but we handle it here
-    } finally {
-      loading.value = false;
-    }
+    });
   };
 
   const register = async (payload) => {
-    loading.value = true;
-    try {
-      const res = await authService.register(payload);
-      toast.success('User created successfully');
-      return res;
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Operation failed');
-      throw err;
-    } finally {
-      loading.value = false;
-    }
+    return withLoading(loading, "register", async () => {
+      try {
+        const res = await handleResponse(authService.register(payload));
+        toast.success("User created successfully");
+        return res.data;
+      } catch (err) {
+        toast.error(err.message || "Operation failed");
+        throw err;
+      }
+    });
   };
 
-  // Getters (in Setup Stores these are simply functions or computed properties)
-  const hasRole = (role) => {
-    return user.value?.role === role;
-  };
-
-  const isAuthenticated = () => {
-    return !!token.value;
-  };
+  const hasRole = (role) => user.value?.role === role;
 
   const clearError = () => {
     error.value = null;
   };
 
   return {
-    // State properties
     user,
     token,
     refreshToken,
     loading,
     error,
     profileForm,
+    // Getters
+    isAuthenticated,
+    isAdmin,
+    currentUser,
     // Actions
     initProfileForm,
     login,
@@ -183,8 +174,6 @@ export const useAuthStore = defineStore("auth", () => {
     updateProfile,
     register,
     clearError,
-    // Getters / Checks
     hasRole,
-    isAuthenticated,
   };
 });

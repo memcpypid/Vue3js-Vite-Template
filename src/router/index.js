@@ -83,7 +83,7 @@ NProgress.configure({ showSpinner: false });
 router.beforeEach((to, from, next) => {
   NProgress.start();
   const authStore = useAuthStore();
-  const isAuthenticated = authStore.isAuthenticated();
+  const isAuthenticated = authStore.isAuthenticated;
   const userRole = authStore.user?.role;
 
   if (to.meta.requiresAuth && !isAuthenticated) {

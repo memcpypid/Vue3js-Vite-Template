@@ -1,10 +1,9 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
-import { useThemeStore } from '@/stores/theme';
 import { LogOut, Sun, Moon, Home, User as UserIcon } from 'lucide-vue-next';
+import ThemeToggle from '@/components/ui/ThemeToggle.vue';
 
 const authStore = useAuthStore();
-const themeStore = useThemeStore();
 
 const logout = () => {
   authStore.logout();
@@ -27,10 +26,7 @@ const logout = () => {
       </div>
 
       <div class="flex items-center gap-4">
-        <button @click="themeStore.toggleDark()" class="p-2 rounded-full hover:bg-secondary transition-colors">
-          <Moon v-if="!themeStore.isDark" class="w-5 h-5 text-foreground" />
-          <Sun v-else class="w-5 h-5 text-yellow-400" />
-        </button>
+        <ThemeToggle variant="ghost" />
         <div class="h-8 w-px bg-border"></div>
         <div class="flex items-center gap-3">
           <div class="text-sm text-right hidden sm:block">
@@ -48,22 +44,10 @@ const logout = () => {
     <!-- Page Content -->
     <main class="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
+        <transition name="fade-page" mode="out-in">
           <component :is="Component" />
         </transition>
       </router-view>
     </main>
   </div>
 </template>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>
